@@ -80,17 +80,17 @@ int main(int argc, char *argv[]) {
             DieWithError("accept() failed");
 
         /*fork a child process to handle request*/
-        /*if(fork() != 0){
+        if(fork() != 0){
             close(clientfd);
         }else{
             handleClient(clientfd);
-        }*/
-            handleClient(clientfd);
+            exit(0);
+        }
         /*if there a child process has ended, reap the child*/
-        /*pid_t pid = 1;
+        pid_t pid = 1;
         while(pid > 0){
             pid = waitpid(-1, NULL, WNOHANG);
-        } */ 
+        }
     }
     exit(0);
 }
@@ -132,9 +132,8 @@ void handleClient(int clientfd){
         //read from file and write to client;
         sendFile(clientfd, fileptr, requestFile);
         fclose(fileptr);
-    }
-
-    close(clientfd);
+    }  
+    close(clientfd);  
 }
 
 int parseRequest(char *request, char *filename){
