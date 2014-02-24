@@ -218,7 +218,6 @@ void sendFile(int clientfd, FILE *fileptr, char *filename){
     send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
     send(clientfd, "\r\n", 4, 0);
     send(clientfd, fileBuf, fsize, 0);
-    fflush(clientfd);
     free(fileBuf);
 }
 
