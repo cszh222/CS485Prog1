@@ -196,6 +196,10 @@ void sendFile(int clientfd, FILE *fileptr, char *filename){
     long fsize = ftell(fileptr);
     fprintf(stderr, "filesize %ld\n", fsize);
     fseek(fileptr, 0, SEEK_SET);
+
+    char *fileBuf = (char*)malloc(fsize);
+    fread(fileBuf, fsize, 1, fileptr);
+    fprintf(stderr, "%s", fileBuf);
     
     /*form headers*/
     /*status*/
@@ -214,16 +218,9 @@ void sendFile(int clientfd, FILE *fileptr, char *filename){
     send(clientfd, contentTypeHdr, strlen(contentTypeHdr), 0);
     send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
     send(clientfd, "\r\n", 4, 0);
+    send(clientfd, fileBuf, fsize, 0);
 
-    /*start writing body*/
-    char readBuff[MAXBUFF];
-    memset(readBuff, 0, MAXBUFF);
-    int currSize;
-    while((currSize = fread(readBuff, 1, MAXBUFF, fileptr)) > 0){
-        send(clientfd, readBuff, currSize, 0);
-        memset(readBuff, 0, MAXBUFF);
-    }
-
+    free(fileBuf);
 }
 
 void getMimeType(char *filename, char *mimeBuff){
