@@ -1,6 +1,5 @@
 CC = gcc
 CFLAGS = -Wall -g 
-LDFLAGS = -lpthread
 OBJS = main.o
 
 all: server

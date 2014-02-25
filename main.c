@@ -7,9 +7,9 @@
 #include <fcntl.h>
 #include <sys/types.h> 
 #include <sys/wait.h> 
+#include <stdbool.h>
 
-
-#define MAXBUFF 2048  /* Size of buffers */
+#define MAXBUFF 32  /* Size of buffers */
 
 void DieWithError(char *errorMessage);  /* Error handling function */
 void handleClient(int clientfd); /*handleing connection with cliekt*/
@@ -46,51 +46,53 @@ int main(int argc, char *argv[]) {
     //get directory path
     strncpy(dirPath, argv[2], strlen(argv[2]));
 
-    //setup sockets
-    int listenfd = 0;
-    struct sockaddr_in servAddr;
+    int servSock;                    /* Socket descriptor for server */
+    int clntSock;                    /* Socket descriptor for client */
+    struct sockaddr_in echoServAddr; /* Local address */
+    struct sockaddr_in echoClntAddr; /* Client address */
+    unsigned short echoServPort;     /* Server port */
+    unsigned int clntLen;            /* Length of client address data structure */
 
-    if ((listenfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
+    echoServPort = portNo ;         /* local port */
+
+    /* Create socket for incoming connections */
+    if ((servSock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         DieWithError("socket() failed");
-    }
+      
+    /* Construct local address structure */
+    memset(&echoServAddr, 0, sizeof(echoServAddr));   /* Zero out structure */
+    echoServAddr.sin_family = AF_INET;                /* Internet address family */
+    echoServAddr.sin_addr.s_addr = htonl(INADDR_ANY); /* Any incoming interface */
+    echoServAddr.sin_port = htons(echoServPort);      /* Local port */
 
-    /* Construct the server address structure */
-    memset(&servAddr, 0, sizeof(servAddr));     /* Zero out structure */
-    servAddr.sin_family = AF_INET;             /* Internet address family */
-    servAddr.sin_addr.s_addr = htonl(INADDR_ANY);   /* Server IP address */
-    servAddr.sin_port = htons(portNo); /* Server port */
-
-     /* Bind to the local address */
-    if (bind(listenfd, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0){
+    /* Bind to the local address */
+    if (bind(servSock, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0)
         DieWithError("bind() failed");
-    }
 
-     /* Mark the socket so it will listen for incoming connections */
-    if (listen(listenfd, 10) < 0){
+    /* Mark the socket so it will listen for incoming connections */
+    if (listen(servSock, 5) < 0)
         DieWithError("listen() failed");
-    }
 
-    struct sockaddr_in clientAddr;
-    unsigned int clientLen;
-    int clientfd = 0;
-    while(1){
-        clientLen = sizeof(clientAddr);
+    for (;;){ /* Run forever */
+        /* Set the size of the in-out parameter */
+        clntLen = sizeof(echoClntAddr);
+
         /* Wait for a client to connect */
-        if ((clientfd = accept(listenfd, (struct sockaddr *) &clientAddr, &clientLen)) < 0)
+        if ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr, &clntLen)) < 0)
             DieWithError("accept() failed");
 
-        /*fork a child process to handle request*/
-        if(fork() != 0){
-            close(clientfd);
-        }else{
-            handleClient(clientfd);
-            exit(0);
+        /* clntSock is connected to a client! */
+
+        //printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
+        if(fork() == 0){
+            handleClient(clntSock);
         }
-        /*if there a child process has ended, reap the child*/
-        pid_t pid = 1;
-        while(pid > 0){
-            pid = waitpid(-1, NULL, WNOHANG);
+
+        close(clntSock);
+        while(waitpid(-1, NULL, WNOHANG) > 0){
+            fprintf(stderr, "here");
         }
+
     }
     exit(0);
 }
@@ -102,38 +104,40 @@ void handleClient(int clientfd){
     bzero(requestBuff, MAXBUFF);
     char requestFile[MAXBUFF];
     bzero(requestFile, MAXBUFF);
+    char fullPath[MAXBUFF];
+    bzero(fullPath, MAXBUFF);
 
     //read 1 char at a time until newline is found
-    recv(clientfd, &readChar, 1, 0);
+    recv(clientfd, &readChar, 1, MSG_DONTWAIT);
     while(readChar != '\n'){
         strncat(requestBuff, &readChar, 1);
-        recv(clientfd, &readChar, 1, 0);
+        recv(clientfd, &readChar, 1, MSG_DONTWAIT);
     }
 
     if (parseRequest(requestBuff, requestFile) != 0){
         //request method is not GET, ignore the request
         close(clientfd);
-        return;
+        exit(1);
     }
 
     /*valid request has been recieved*/
     /*build the full path of the file*/
-    char fullPath[MAXBUFF];
-    bzero(fullPath, MAXBUFF);
     strncpy(fullPath, dirPath, strlen(dirPath));
     strncat(fullPath, requestFile, strlen(requestFile));
 
     FILE *fileptr;
-    if((fileptr = fopen(fullPath, "rb")) == NULL){
-        //file dont exist, send 404
-        sendNotFound(clientfd);
+    fileptr = fopen(fullPath, "rb");
+    if(fileptr != NULL){
+        //read from file and write to client;
+        sendFile(clientfd, fileptr, requestFile);    
     }
     else{
-        //read from file and write to client;
-        sendFile(clientfd, fileptr, requestFile);
-        fclose(fileptr);
+         //file dont exist, send 404
+        sendNotFound(clientfd);        
     }  
-    close(clientfd);  
+    //fprintf(stderr, "here");
+    close(clientfd);     
+    exit(0);
 }
 
 int parseRequest(char *request, char *filename){
@@ -170,14 +174,16 @@ void sendNotFound(int clientfd){
     char contentTypeHdr[] = "Content-Type: text/html\r\n";
     char contentLengthHdr[MAXBUFF];
     bzero(contentLengthHdr, MAXBUFF);
+
+
     sprintf(contentLengthHdr, "Content-Length: %d\r\n", 
-        strlen(responseBody1)+strlen(responseBody2)+strlen(responseBody3));
+    strlen(responseBody1)+strlen(responseBody2)+strlen(responseBody3));
 
     /*write the headers*/
     send(clientfd, statusHdr, strlen(statusHdr), 0);
     send(clientfd, contentTypeHdr, strlen(contentTypeHdr), 0);
     send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
-    send(clientfd, "\r\n", 4, 0);
+    send(clientfd, "\r\n", strlen("\r\n"), 0);
 
     /*write the body*/
     send(clientfd, responseBody1, strlen(responseBody1), 0);
@@ -186,39 +192,31 @@ void sendNotFound(int clientfd){
 }
 
 void sendFile(int clientfd, FILE *fileptr, char *filename){
-    /*get the content type*/
     char mimeType[MAXBUFF];
-    getMimeType(filename, mimeType);
-
-    /*get the content length*/
-    fseek(fileptr, 0, SEEK_END);
-    long fsize = ftell(fileptr);
-    fprintf(stderr, "filesize %ld\n", fsize);
-    fseek(fileptr, 0, SEEK_SET);
-
-    char *fileBuf = (char*)malloc(fsize);
-    fread(fileBuf, fsize, 1, fileptr);
-    fprintf(stderr, "%s", fileBuf);
-    
-    /*form headers*/
-    /*status*/
-    char statusHdr[] = "HTTP/1.0 200 OK\r\n";
-    /*content type*/
+    bzero(mimeType, MAXBUFF);
+    char statusHdr[MAXBUFF] = "HTTP/1.0 200 OK\r\n";
     char contentTypeHdr[MAXBUFF]; 
-    bzero(contentTypeHdr, MAXBUFF);
+    bzero(contentTypeHdr, MAXBUFF);        
+    char readBuff[MAXBUFF];
+    bzero(readBuff, MAXBUFF);
+    int readSize;
+
+    getMimeType(filename, mimeType);   
     sprintf(contentTypeHdr, "Content-Type: %s\r\n", mimeType);
-    /*content length*/
-    char contentLengthHdr[MAXBUFF];
-    bzero(contentLengthHdr, MAXBUFF);
-    sprintf(contentLengthHdr, "Content-Length: %ld\r\n", fsize);
 
     /*send all headers*/
     send(clientfd, statusHdr, strlen(statusHdr), 0);
     send(clientfd, contentTypeHdr, strlen(contentTypeHdr), 0);
-    send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
+    //send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
     send(clientfd, "\r\n", 4, 0);
-    send(clientfd, fileBuf, fsize, 0);
-    free(fileBuf);
+    fprintf(stderr, "here");
+    while((readSize = fread(readBuff, 1, MAXBUFF, fileptr)) > 0){
+        fprintf(stderr, "%s", readBuff);
+        send(clientfd, readBuff, readSize, 0);
+        bzero(readBuff, MAXBUFF);
+    }
+
+    fclose(fileptr);  
 }
 
 void getMimeType(char *filename, char *mimeBuff){
