@@ -9,7 +9,7 @@
 #include <sys/wait.h> 
 #include <stdbool.h>
 
-#define MAXBUFF 32  /* Size of buffers */
+#define MAXBUFF 1000  /* Size of buffers */
 
 void DieWithError(char *errorMessage);  /* Error handling function */
 void handleClient(int clientfd); /*handleing connection with cliekt*/
@@ -84,13 +84,11 @@ int main(int argc, char *argv[]) {
         /* clntSock is connected to a client! */
 
         //printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
-        if(fork() == 0){
-            handleClient(clntSock);
-        }
+        handleClient(clntSock);
 
-        close(clntSock);
-        while(waitpid(-1, NULL, WNOHANG) > 0){
-            fprintf(stderr, "here");
+        pid_t pid = 1;
+        while(pid > 0){
+            pid = waitpid(-1, NULL, WNOHANG);
         }
 
     }
@@ -98,6 +96,11 @@ int main(int argc, char *argv[]) {
 }
 
 void handleClient(int clientfd){
+
+    if(fork() != 0){
+        close(clientfd);
+        return;
+    }
 
     char readChar;
     char requestBuff[MAXBUFF];
@@ -177,7 +180,7 @@ void sendNotFound(int clientfd){
 
 
     sprintf(contentLengthHdr, "Content-Length: %d\r\n", 
-    strlen(responseBody1)+strlen(responseBody2)+strlen(responseBody3));
+        (int)(strlen(responseBody1)+strlen(responseBody2)+strlen(responseBody3)));
 
     /*write the headers*/
     send(clientfd, statusHdr, strlen(statusHdr), 0);
@@ -194,28 +197,38 @@ void sendNotFound(int clientfd){
 void sendFile(int clientfd, FILE *fileptr, char *filename){
     char mimeType[MAXBUFF];
     bzero(mimeType, MAXBUFF);
-    char statusHdr[MAXBUFF] = "HTTP/1.0 200 OK\r\n";
+    char statusHdr[] = "HTTP/1.0 200 OK\r\n";
     char contentTypeHdr[MAXBUFF]; 
-    bzero(contentTypeHdr, MAXBUFF);        
-    char readBuff[MAXBUFF];
-    bzero(readBuff, MAXBUFF);
+    bzero(contentTypeHdr, MAXBUFF);
+    char contentLengthHdr[MAXBUFF];
+    bzero(contentLengthHdr, MAXBUFF);      
+    char *readBuff = (char *)malloc(sizeof(char)*MAXBUFF);
+    bzero((void *)readBuff, MAXBUFF);
     int readSize;
+    int fsize;
 
     getMimeType(filename, mimeType);   
     sprintf(contentTypeHdr, "Content-Type: %s\r\n", mimeType);
 
+    fseek(fileptr, 0L, SEEK_END);
+    fsize = ftell(fileptr);
+    fseek(fileptr, 0L, SEEK_SET);
+
+    sprintf(contentLengthHdr, "Content-Length: %d\r\n", fsize);
+
     /*send all headers*/
     send(clientfd, statusHdr, strlen(statusHdr), 0);
     send(clientfd, contentTypeHdr, strlen(contentTypeHdr), 0);
-    //send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
-    send(clientfd, "\r\n", 4, 0);
-    fprintf(stderr, "here");
-    while((readSize = fread(readBuff, 1, MAXBUFF, fileptr)) > 0){
-        fprintf(stderr, "%s", readBuff);
-        send(clientfd, readBuff, readSize, 0);
-        bzero(readBuff, MAXBUFF);
+    send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
+    send(clientfd, "\r\n", strlen("\r\n"), 0);
+
+    while((readSize = fread((void *)readBuff, 1, MAXBUFF, fileptr)) > 0){
+        //fprintf(stderr, "%s", readBuff);
+        send(clientfd, (void *)readBuff, readSize, MSG_DONTWAIT);
+        //bzero((void *)readBuff, MAXBUFF);
     }
 
+    free(readBuff);
     fclose(fileptr);  
 }
 
