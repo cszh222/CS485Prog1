@@ -117,7 +117,8 @@ void handleClient(int clientfd){
     fd_set readFlag;
     FD_ZERO(&readFlag);
     FD_SET(clientfd, &readFlag);
-
+    
+    //time set to 10 sec so I can telnet initially	
     struct timeval waitTime;
     waitTime.tv_sec = 10;
     waitTime.tv_usec = 0;
@@ -148,7 +149,9 @@ void handleClient(int clientfd){
 	    close(clientfd);
         exit(1);
     }
-
+    
+    //set time to 2 sec so it times out faster when reading from browser
+    waitTime.tv_sec = 2;    	
     //read the rest of request
     while(readyToRead > 0){
        fprintf(stderr, "%c", readChar);
@@ -172,7 +175,7 @@ void handleClient(int clientfd){
          //file dont exist, send 404
         sendNotFound(clientfd);        
     }  
-    //fprintf(stderr, "here");
+    fprintf(stderr, "Closing Connection\n");
     close(clientfd);     
     exit(0);
 }
@@ -258,10 +261,7 @@ void sendFile(int clientfd, FILE *fileptr, char *filename){
     send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
     send(clientfd, "\r\n", strlen("\r\n"), 0);
 
-    fprintf(stderr, "headers sent\n");
-
     while((readSize = fread((void *)readBuff, 1, MAXBUFF, fileptr)) > 0){
-        fprintf(stderr, "%s", readBuff);
         send(clientfd, (void *)readBuff, readSize, MSG_WAITALL);
         //bzero((void *)readBuff, MAXBUFF);
     }
