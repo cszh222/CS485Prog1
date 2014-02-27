@@ -35,3 +35,9 @@ specifications. However there is no checks for if the browser requests for a fil
 but does not match the file formats listed above. In that case, the programm will send back the 
 content type as application/octet-stream. This sends the requested file back as a binary file. It 
 is up to the browser to handle what to do with the data recieved.
+
+There is a slight delay in transmitting the files back to the browser. There is a timer in place 
+that will stop the program from reading request from the browser if the browser does not send any
+data for a certain amount of time. The first line of the request will be 10 seconds. I used 10 
+seconds for testing with telnet. The rest of the request is 2 seconds. So there will be a 2 second
+deplay before the program actually starts to process the request and start to send back response.
