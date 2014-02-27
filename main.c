@@ -286,6 +286,10 @@ void getMimeType(char *filename, char *mimeBuff){
     else if(strcmp(fileExt, "gif") == 0){
         strcpy(mimeBuff, "image/gif");
     }
+    else{
+        //everything else sent as binary
+        strcpy(mimeBuff, "application/octet-stream");
+    }
 }
 void DieWithError(char *errorMessage)
 {

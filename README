@@ -1,0 +1,37 @@
+CS485-004 Introduction to Computer Networking (Spring 2014)
+Program Assginment 1
+Due Date: 2-27-2014
+By: Chang Zheng
+
+Files:
+ - main.c - the source code of the program
+ - Makefile - the makefile that can be used to compile the program
+ - README - this file
+ - HTML/index.html - sample html file used for testing
+ - HTML/jpeg.jpg - sample image file used for testing
+
+Compilation:
+To compile, navigate to the project directory where main.c and Makefile is located.
+Compile with the command "make". 
+If there is a message that displays "make: Nothing to be done for `all'.", 
+then do "make clean" and then "make".
+
+Running the program:
+To run the program use the command "myserver <Port number> <Path to html root directory>".
+<Port number> is the port number for the server to be run on. Must be between 1204-65535.
+<Path to html root directory> is the root directory where the web server files is located.
+
+General Description:
+This program implements a simple web server using TCP sockets. 
+This program will only respond to GET requests, ignores all others.
+The program listens on a port and waits for incomming connections. When a connection
+is accepted, the server will create a child to parse the request and send response
+if it is a valid request. If it is not a valid request, the program will close the connection
+and the child process will terminate.
+
+Limitations:
+The program will handle html, txt, jpg, and gif files correctly. This is part of the program 
+specifications. However there is no checks for if the browser requests for a file that does exist
+but does not match the file formats listed above. In that case, the programm will send back the 
+content type as application/octet-stream. This sends the requested file back as a binary file. It 
+is up to the browser to handle what to do with the data recieved.
