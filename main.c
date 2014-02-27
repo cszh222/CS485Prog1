@@ -8,6 +8,7 @@
 #include <sys/types.h> 
 #include <sys/wait.h> 
 #include <stdbool.h>
+#include <time.h>
 
 #define MAXBUFF 1000  /* Size of buffers */
 
@@ -110,19 +111,40 @@ void handleClient(int clientfd){
     char fullPath[MAXBUFF];
     bzero(fullPath, MAXBUFF);
 
+
+    //timer for reading
+    int readyToRead = 1;
+    fd_set readFlag;
+    FD_ZERO(&readFlag);
+    FD_SET(clientfd, &readFlag);
+
+    struct timeval waitTime;
+    waitTime.tv_sec = 10;
+    waitTime.tv_usec = 0;
+    
     //read 1 char at a time until newline is found
-    recv(clientfd, &readChar, 1, 0);
-    while(readChar != '\n'){
+    recv(clientfd, &readChar, 1, 0);    
+    readyToRead = select(clientfd+1, &readFlag, NULL, NULL, &waitTime);
+    while(readChar != '\n' && readyToRead > 0){
         strncat(requestBuff, &readChar, 1);
         recv(clientfd, &readChar, 1, 0);
+        readyToRead = select(clientfd+1, &readFlag, NULL, NULL, &waitTime);
     }
+
+    if(readyToRead <= 0){
+        //timed out or input error
+        fprintf(stderr,"Timeout or input error %d", readyToRead);
+        close(clientfd);
+        exit(1);
+    }
+
     
     fprintf(stderr, "%s\n", requestBuff);
 
     if (parseRequest(requestBuff, requestFile) != 0){
         //request method is not GET, ignore the request
         fprintf(stderr, "bad request: %s\n", requestBuff);
-	close(clientfd);
+	   close(clientfd);
         exit(1);
     }
 
