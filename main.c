@@ -124,11 +124,12 @@ void handleClient(int clientfd){
     
     //read 1 char at a time until newline is found
     while(readyToRead > 0){
-	recv(clientfd, &readChar, 1, MSG_DONTWAIT);
+	if(recv(clientfd, &readChar, 1, MSG_DONTWAIT) == 1){
+	    strncat(requestBuff, &readChar, 1);
+        }
 	if(readChar == '\n'){
 	   break;
-	} 
-        strncat(requestBuff, &readChar, 1);
+	}
         readyToRead = select(clientfd+1, &readFlag, NULL, NULL, &waitTime);
     }
 
@@ -139,8 +140,7 @@ void handleClient(int clientfd){
 	exit(1);
     }
 
-    
-    fprintf(stderr, "%s\n", requestBuff);
+    fprintf(stderr, "%s", requestBuff);
 
     if (parseRequest(requestBuff, requestFile) != 0){
         //request method is not GET, ignore the request
@@ -255,7 +255,7 @@ void sendFile(int clientfd, FILE *fileptr, char *filename){
 
     while((readSize = fread((void *)readBuff, 1, MAXBUFF, fileptr)) > 0){
         //fprintf(stderr, "%s", readBuff);
-        send(clientfd, (void *)readBuff, readSize, 0);
+        send(clientfd, (void *)readBuff, readSize, MSG_WAITALL);
         //bzero((void *)readBuff, MAXBUFF);
     }
 
