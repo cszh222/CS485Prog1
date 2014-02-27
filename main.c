@@ -154,8 +154,8 @@ void handleClient(int clientfd){
     waitTime.tv_sec = 2;    	
     //read the rest of request
     while(readyToRead > 0){
-       fprintf(stderr, "%c", readChar);
        recv(clientfd, &readChar, 1, MSG_DONTWAIT);
+       fprintf(stderr, "%c", readChar);
        readyToRead = select(clientfd+1, &readFlag, NULL, NULL, &waitTime); 
     }
 
@@ -175,7 +175,7 @@ void handleClient(int clientfd){
          //file dont exist, send 404
         sendNotFound(clientfd);        
     }  
-    fprintf(stderr, "Closing Connection\n");
+    fprintf(stderr, "Closing Connection\n\n");
     close(clientfd);     
     exit(0);
 }
