@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 
         /* clntSock is connected to a client! */
 
-        //printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
+        fprintf(stderr, "Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
         handleClient(clntSock);
 
         pid_t pid = 1;
@@ -111,15 +111,18 @@ void handleClient(int clientfd){
     bzero(fullPath, MAXBUFF);
 
     //read 1 char at a time until newline is found
-    recv(clientfd, &readChar, 1, MSG_DONTWAIT);
+    recv(clientfd, &readChar, 1, 0);
     while(readChar != '\n'){
         strncat(requestBuff, &readChar, 1);
-        recv(clientfd, &readChar, 1, MSG_DONTWAIT);
+        recv(clientfd, &readChar, 1, 0);
     }
+    
+    fprintf(stderr, "%s\n", requestBuff);
 
     if (parseRequest(requestBuff, requestFile) != 0){
         //request method is not GET, ignore the request
-        close(clientfd);
+        fprintf(stderr, "bad request: %s\n", requestBuff);
+	close(clientfd);
         exit(1);
     }
 
@@ -222,9 +225,11 @@ void sendFile(int clientfd, FILE *fileptr, char *filename){
     send(clientfd, contentLengthHdr, strlen(contentLengthHdr), 0);
     send(clientfd, "\r\n", strlen("\r\n"), 0);
 
+    fprintf(stderr, "headers sent\n");
+
     while((readSize = fread((void *)readBuff, 1, MAXBUFF, fileptr)) > 0){
         //fprintf(stderr, "%s", readBuff);
-        send(clientfd, (void *)readBuff, readSize, MSG_DONTWAIT);
+        send(clientfd, (void *)readBuff, readSize, 0);
         //bzero((void *)readBuff, MAXBUFF);
     }
 
