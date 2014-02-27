@@ -123,11 +123,12 @@ void handleClient(int clientfd){
     waitTime.tv_usec = 0;
     
     //read 1 char at a time until newline is found
-    recv(clientfd, &readChar, 1, 0);    
-    readyToRead = select(clientfd+1, &readFlag, NULL, NULL, &waitTime);
-    while(readChar != '\n' && readyToRead > 0){
+    while(readyToRead > 0){
+	recv(clientfd, &readChar, 1, MSG_DONTWAIT);
+	if(readChar == '\n'){
+	   break;
+	} 
         strncat(requestBuff, &readChar, 1);
-        recv(clientfd, &readChar, 1, 0);
         readyToRead = select(clientfd+1, &readFlag, NULL, NULL, &waitTime);
     }
 
@@ -135,7 +136,7 @@ void handleClient(int clientfd){
         //timed out or input error
         fprintf(stderr,"Timeout or input error %d", readyToRead);
         close(clientfd);
-        exit(1);
+	exit(1);
     }
 
     
