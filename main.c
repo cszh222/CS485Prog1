@@ -145,8 +145,15 @@ void handleClient(int clientfd){
     if (parseRequest(requestBuff, requestFile) != 0){
         //request method is not GET, ignore the request
         fprintf(stderr, "bad request: %s\n", requestBuff);
-	   close(clientfd);
+	    close(clientfd);
         exit(1);
+    }
+
+    //read the rest of request
+    while(readyToRead > 0){
+       fprintf(stderr, "%c", readChar);
+       recv(clientfd, &readChar, 1, MSG_DONTWAIT);
+       readyToRead = select(clientfd+1, &readFlag, NULL, NULL, &waitTime); 
     }
 
     /*valid request has been recieved*/
@@ -254,7 +261,7 @@ void sendFile(int clientfd, FILE *fileptr, char *filename){
     fprintf(stderr, "headers sent\n");
 
     while((readSize = fread((void *)readBuff, 1, MAXBUFF, fileptr)) > 0){
-        //fprintf(stderr, "%s", readBuff);
+        fprintf(stderr, "%s", readBuff);
         send(clientfd, (void *)readBuff, readSize, MSG_WAITALL);
         //bzero((void *)readBuff, MAXBUFF);
     }
