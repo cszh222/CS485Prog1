@@ -136,6 +136,7 @@ void handleClient(int clientfd){
     if(fileptr != NULL){
         //read from file and write to client;
         sendFile(clientfd, fileptr, requestFile);    
+        fclose(fileptr);
     }
     else{
          //file dont exist, send 404
@@ -195,6 +196,8 @@ void sendNotFound(int clientfd){
     send(clientfd, responseBody1, strlen(responseBody1), 0);
     send(clientfd, responseBody2, strlen(responseBody2), 0);
     send(clientfd, responseBody3, strlen(responseBody3), 0);
+
+    fprintf(stderr, "not found sent\n");
 }
 
 void sendFile(int clientfd, FILE *fileptr, char *filename){
@@ -233,8 +236,7 @@ void sendFile(int clientfd, FILE *fileptr, char *filename){
         //bzero((void *)readBuff, MAXBUFF);
     }
 
-    free(readBuff);
-    fclose(fileptr);  
+    free(readBuff);    
 }
 
 void getMimeType(char *filename, char *mimeBuff){
